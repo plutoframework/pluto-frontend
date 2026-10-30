@@ -112,6 +112,7 @@ export function transition(
 }
 
 export interface Dependencies {
+
   // Implement in the feature's mutation layer; preserve backend idempotency keys.
   readonly approvePurchase: (
     purchaseId: string,

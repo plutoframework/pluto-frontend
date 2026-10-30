@@ -206,3 +206,10 @@ Braces, multiline blocks, separated object/type fields and logical blank lines
 are enforced; nested ternaries require explicit branches or named mappings.
 The policy is visible in `scripts/readability.mjs`. These are dev-only tools and
 add no runtime dependencies to state or React entrypoints.
+
+Standalone comment blocks have one blank line above them, except at line 1.
+Consecutive comment lines stay together, and the comment remains attached to the
+code below. JavaScript and TypeScript lint/format checks enforce this convention,
+including the start of a function or branch. Inline trailing comments are kept
+in place, and next-line compiler/linter directives retain their target. The
+cross-language convention is also recorded in AGENTS.md for future changes.

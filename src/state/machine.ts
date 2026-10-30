@@ -19,6 +19,7 @@ export function createMachine<State, Event, Effect = never>(
   }
 
   function cancel(): void {
+
     // Fence callbacks BEFORE synchronous abort handlers can send events.
     epoch++;
 
