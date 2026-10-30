@@ -1,283 +1,76 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/plutoframework/pluto/main/assets/readme/banner.svg" alt="Pluto — a small framework, wide open possibilities" width="100%" />
+</p>
+
 # Pluto Frontend
 
-Typed frontend primitives for Pluto applications. Start with explicit UI state
-transitions and effects; subscribe from React when needed.
+Responsive interfaces. Explicit state. Predictable effects.
+
+[Website](https://plutoframework.github.io/pluto-site/) · [Documentation](https://plutoframework.github.io/pluto-site/docs/frontend/state/) · [CLI demo](https://github.com/plutoframework/pluto/blob/main/docs/DEMO.md) · [First issues](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks)
+
+## What you get
+
+- Dependency-free state machines and headless action controllers.
+- Optional React subscriptions and scoped action ownership.
+- Optional TanStack Query integration with explicit optimistic projections.
+
+## Get started
+
+### 1. Install
+
+For an ESM project (the Pluto scaffold uses Node **24.22.1**):
 
 ```sh
-npm install @plutoframework/frontend
+npm install @plutoframework/frontend@0.2.1
 ```
 
-```ts
-import { createMachine } from "@plutoframework/frontend/state";
-import type { Decision } from "@plutoframework/frontend/state";
-import { useMachine } from "@plutoframework/frontend/react";
-```
+React is optional; `/query` also needs the TanStack Query v5 peer. Pure `/state`
+and `/actions` consumers acquire neither dependency.
 
-The state entrypoint has **zero runtime dependencies**. React is an optional peer;
-install React 18.3.1 or 19 separately when using the React entrypoint. This package
-is ESM-only and includes TypeScript declarations. The root import is intentionally
-absent: choose a specific primitive. No CSS, component library or Go runtime is
-required. Future frontend primitives can use additional entrypoints here.
+### 2. Try an action
 
-## Define a flow
+Save this as `action.mjs`, then run `node action.mjs`:
 
-```ts
-import { createMachine } from "@plutoframework/frontend/state";
-import type { Decision } from "@plutoframework/frontend/state";
+```js
+import { createActions } from "@plutoframework/frontend/actions";
 
-type State = { readonly status: "idle" | "pending" | "done" };
-type Event = { readonly type: "start" | "done" };
-type Effect = { readonly type: "load" };
-
-function transition(current: State, event: Event): Decision<State, Effect> {
-  if (current.status === "idle" && event.type === "start") {
-    return {
-      accepted: true,
-      state: { status: "pending" },
-      effect: { type: "load" },
-    };
-  }
-
-  if (current.status === "pending" && event.type === "done") {
-    return { accepted: true, state: { status: "done" } };
-  }
-
-  return { accepted: false, state: current };
-}
-
-const flow = createMachine<State, Event, Effect>({
-  initial: { status: "idle" },
-  transition,
-  async execute(_effect, { signal, send }) {
-    const response = await fetch("/api/summary", { signal });
-    if (!response.ok) throw new Error("Summary request failed");
-    await send({ type: "done" });
-  },
+const actions = createActions({
+  execute: async (id) => ({ id, saved: true }),
 });
 
-// Commits pending synchronously, then awaits its effect. Handle errors explicitly.
-await flow.send({ type: "start" });
+await actions.run("purchase-42", "purchase-42");
+console.log(actions.getSnapshot()[0].status);
+actions.dispose();
 ```
 
-Use your feature's existing query/mutation adapter for real applications. The
-small fetch example demonstrates the boundary; it is not a new HTTP client.
+This local demonstration prints `succeeded`; replace the executor with a feature
+adapter when connecting an API. Choose explicit entrypoints; there is no root import.
 
-## Transition rules
+### 3. Connect the UI
 
-Transitions are pure application functions. They must neither perform I/O nor
-mutate state/events or call the controller. Return a new immutable snapshot for
-accepted changes. Rejected decisions preserve the controller's existing snapshot,
-even if the returned decision supplies a different state. TypeScript readonly
-fields are compile-time guidance; this library does not clone or freeze objects.
-
-An accepted decision may describe one effect. Missing executors are rejected
-before committing an effect-bearing decision. Effects execute outside rendering,
-reducers and subscription setup. States, events and guards remain ordinary typed
-application code, with no global registration, reflection, DSL or automatic I/O.
-
-## Controller lifecycle
-
-| Method                 | Behavior                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `getSnapshot()`        | Returns the current stable snapshot                                                            |
-| `getInitialSnapshot()` | Returns the immutable initial snapshot for SSR                                                 |
-| `subscribe(listener)`  | Subscribes until the returned cleanup is called                                                |
-| `send(event)`          | Commits an accepted transition synchronously; resolves to acceptance after its effect finishes |
-| `reset()`              | Aborts executions, fences their callbacks and restores the initial snapshot                    |
-| `dispose()`            | Permanently aborts executions, removes subscribers and rejects further events                  |
-
-Always await or catch `send()` promises. Transition/executor/subscriber exceptions
-reject the sending promise. Transition errors do not commit; executor or subscriber
-errors after commit do not roll state back. Subscription callbacks must be small,
-synchronous and nonthrowing. Model expected request failures as typed events, as
-shown in [the purchase flow](https://github.com/plutoframework/pluto-frontend/blob/main/examples/purchases/approval.ts).
-
-Each effect receives an AbortSignal and a scoped `send`. That callback returns
-false after reset, disposal or executor completion, so late responses cannot
-update a replacement interaction. Cancellation is cooperative: an executor that
-ignores its signal can keep running, and its original sending promise can remain
-pending. There are no automatic retries, execution timeouts or concurrency limits.
-The transition function defines which events may start additional work.
-
-## React
-
-Pass an existing controller into your component:
-
-```tsx
-import type { Machine } from "@plutoframework/frontend/state";
-
-function Summary({
-  flow,
-  onError,
-}: {
-  flow: Machine<State, Event>;
-  onError: (error: unknown) => void;
-}) {
-  const { state, send } = useMachine(flow);
-
-  return (
-    <button
-      disabled={state.status !== "idle"}
-      onClick={() => void send({ type: "start" }).catch(onError)}
-    >
-      {state.status}
-    </button>
-  );
-}
-```
-
-The hook uses `useSyncExternalStore`. Rendering, resubscription and Strict Mode
-checks do not execute effects. The hook subscribes only: unmounting a subscriber
-**does not dispose a shared controller**. The owning application/route/session
-lifecycle must dispose it when its resource or identity scope ends. Create a fresh
-controller for the new scope; do not reuse one across tenants or users. Do not
-create a module-global controller for server requests. SSR needs equivalent
-request-local initial data on server and client for hydration. Do not send events
-from render or pure reducers. Strict Mode can replay caller-owned React Effects;
-an imperative call placed in such an Effect is still the caller's responsibility.
-
-See the fully typed [React purchase component](https://github.com/plutoframework/pluto-frontend/blob/main/examples/purchases/ApprovalButton.tsx)
-and the [flow/executor](https://github.com/plutoframework/pluto-frontend/blob/main/examples/purchases/approval.ts). These original examples
-are type-checked in CI and are independent of HeroUI/shadcn styling.
-
-## Backend authority
-
-A frontend interaction state such as `submitting` is distinct from the purchase's
-persisted business status. The backend verifies identity, RBAC, tenant scope,
-resource policy and state transitions on every write. Refresh authoritative query
-data after a mutation or uncertain failure. An aborted request can still commit
-on the server. UI request IDs correlate responses; they are not backend
-idempotency keys, authorization or an exactly-once guarantee. Preserve your
-feature mutation adapter's existing stable idempotency key for retries.
-
-## Develop
-
-Use Node 24.22.1:
-
-```sh
-npm ci
-npm run check
-npm run test:mutation
-npm pack
-```
-
-Tests cover transition rejection, duplicate actions, stale callbacks, reset,
-disposal, executor failures, React Strict Mode/SSR and 1,500 deterministic property
-runs over arbitrary event sequences. Mutation smoke is a bounded set of seeded
-mutations, not a comprehensive mutation engine. CI tests React 18.3.1 and 19.3.1.
-Releases publish through GitHub Actions using npm trusted publishing (OIDC);
-no npm credentials are stored in this repository or in GitHub Actions.
-
-## Publish a release
-
-The `publish.yml` workflow publishes stable `vMAJOR.MINOR.PATCH` tags using npm
-trusted publishing and provenance. It checks tag/version agreement and main-branch
-ancestry, runs tests and mutation checks, and verifies packed consumers before
-publishing. Prereleases are rejected. Manual dispatch accepts an existing tag for
-retrying a failed publish; npm never overwrites an already published version.
-
-After merging the intended changes into main:
-
-```sh
-npm version patch
-git push origin main --follow-tags
-```
-
-The one-time npm trusted publisher is scoped to:
-
-| Setting        | Value            |
-| -------------- | ---------------- |
-| Organization   | `plutoframework` |
-| Repository     | `pluto-frontend` |
-| Workflow       | `publish.yml`    |
-| Environment    | None             |
-| Allowed action | `npm publish`    |
-
-The workflow uses GitHub-hosted runners with `id-token: write`; npm exchanges the
-workflow identity for a short-lived publish credential. No `NPM_TOKEN` secret is
-needed. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
-
-## Source readability
-
-Development tooling uses ESLint Stylistic with an 80-column expanded convention.
-Run `npm run fmt` to apply the canonical Prettier + ESLint result. `npm run check`
-checks formatting without writing, then lint, types, behavior tests and builds.
-Braces, multiline blocks, separated object/type fields and logical blank lines
-are enforced; nested ternaries require explicit branches or named mappings.
-The policy is visible in `scripts/readability.mjs`. These are dev-only tools and
-add no runtime dependencies to state or React entrypoints.
-
-Standalone comment blocks have one blank line above them, except at line 1.
-Consecutive comment lines stay together, and the comment remains attached to the
-code below. JavaScript and TypeScript lint/format checks enforce this convention,
-including the start of a function or branch. Inline trailing comments are kept
-in place, and next-line compiler/linter directives retain their target. The
-cross-language convention is also recorded in AGENTS.md for future changes.
+Use `useActions` from `/react` or `useActionMutation` from `/query`. Every action
+acknowledges immediately; pending confirmation is the default. Keep authority on
+the server and scope callbacks/cache keys by actor, session and tenant.
 
 ## Responsive actions
 
-Use `@plutoframework/frontend/actions` for a dependency-free action controller,
-`useActions` from `/react` for lifecycle-owned React feedback, or
-`useActionMutation` from `/query` to receive your existing TanStack Query client.
-The query entrypoint requires the optional React and TanStack Query v5 peers;
-state/actions consumers install neither. These helpers do not add a transport,
-automatic retries or backend authorization.
+Select optimistic projections only for predictable, recoverable interactions.
+Apply confirmed data before background refresh, preserve failed input and
+reconcile uncertain outcomes before retrying. Read the [complete action API](https://github.com/plutoframework/pluto-frontend/blob/main/docs/REFERENCE.md#responsive-actions)
+and [responsive UI guide](https://plutoframework.github.io/pluto-site/docs/frontend/actions/).
 
-```tsx
-import { useActionMutation } from "@plutoframework/frontend/query";
+## Read further
 
-const action = useActionMutation({
-  scope: JSON.stringify([actor, session, tenant]),
-  execute: (id: string, { signal }) => removeRecord(id, signal),
-  confirm: (_result, id, client) => applyConfirmedRemoval(client, id),
-  reconcile: (_id, client) =>
-    client.invalidateQueries({ queryKey: recordsKey }),
-  classifyError: (error) =>
-    isDefiniteRejection(error) ? "rejected" : "uncertain",
-});
+- [API and integration reference](https://github.com/plutoframework/pluto-frontend/blob/main/docs/REFERENCE.md)
+- [Field guide](https://plutoframework.github.io/pluto-site/docs/frontend/state/)
+- [Pluto ecosystem](https://github.com/plutoframework/pluto#the-ecosystem)
 
-const rows = action.project(query.data ?? [], {
-  mode: "optimistic",
-  project: (current, id) => current.filter((row) => row.id !== id),
-});
+## Boundaries
 
-// Default: render canonical rows and show entry.status === "pending" per row.
-// Opt in to the projection only when immediate removal is appropriate.
-void action.run(record.id, record.id);
-```
+No durable recovery, offline queue or cross-component lock is implied. Cancellation is cooperative; frontend state never provides backend authorization or idempotency.
 
-The snippet's transport, cache updater, query key and rejection classifier belong
-to the feature; include actor/session/tenant in query keys. `scope` must change
-when captured resource authority changes. Each resource key is locked while
-pending or uncertain; separate keys can run concurrently. Controls must use
-`ready` and entry status, acknowledge immediately with accessible pending text,
-preserve input on failure and never announce success before confirmation.
+## Contribute
 
-`run` resolves to whether the action was accepted, **not whether it succeeded**.
-Read the entry's outcome. `confirm` applies authoritative response data
-synchronously before success; reconciliation runs in the background. A refresh
-failure is `refreshError`, never a failed business write. Handle it visibly with
-a refresh option; no detached promise rejection is left unhandled.
+Start with [CONTRIBUTING.md](https://github.com/plutoframework/pluto-frontend/blob/main/CONTRIBUTING.md), then choose a [good first issue](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks).
 
-Optimistic projections run over current data without changing the cache. Rejection
-removes only that action's projection, preserving concurrent changes. Keep
-projectors pure; filtered, sorted or paginated collections may need feature-specific
-reconciliation. Success removes the projection, so update canonical data in
-`confirm` before it disappears. Cross-key operations on the same logical entity
-still need a host conflict policy.
-
-Unknown errors default to **uncertain**: timeouts, disconnects and server errors
-may happen after commit. Their projection remains and retries stay locked until
-an authoritative read or same-key replay establishes the outcome; call
-`resolve(key, "succeeded" | "rejected")` only then. A declared rejection permits
-retry. `forget` releases only terminal entries; retention is bounded to 1,000
-keys by default. Action keys deduplicate this controller only: keep stable backend
-idempotency keys separately for the same business intent.
-
-Constructors perform no effects. React owns a fresh store for each committed
-scope and disposes it on scope change/unmount, including StrictMode replay.
-`ready` is false during initialization/SSR. Disposal aborts cooperative requests
-and fences confirmations; it cannot undo a server write or already-started cache
-refresh. Use scoped queries and cancel/remove old reads in the host when changing
-identity. Headless hosts own disposal themselves. No persistence, cross-component
-locking, offline queue or exactly-once guarantee is implied.
+MIT licensed. See [LICENSE](https://github.com/plutoframework/pluto-frontend/blob/main/LICENSE).
