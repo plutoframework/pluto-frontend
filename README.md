@@ -27,7 +27,27 @@ npm install @plutoframework/frontend@0.2.1
 React is optional; `/query` also needs the TanStack Query v5 peer. Pure `/state`
 and `/actions` consumers acquire neither dependency.
 
-### 2. Try optimistic removal and rejection
+### 2. Connect an application mutation
+
+Use `useActionMutation` from `/query` inside a feature hook. Inject the feature's
+real API operation into `execute`, apply the authoritative response in `confirm`
+and invalidate scoped queries in `reconcile`. Render pending status immediately;
+keep the canonical record visible until confirmation for consequential actions.
+
+The [purchasing feature hook](https://github.com/plutoframework/pluto-example/blob/main/web/src/features/purchases/mutations.ts)
+is a complete application implementation: it calls the generated OpenAPI client,
+passes AbortSignal, tenant headers and a stable idempotency key, updates confirmed
+cache data and keeps uncertain outcomes locked. The
+[purchase page](https://github.com/plutoframework/pluto-example/blob/main/web/src/features/purchases/pages/PurchaseDetailPage.tsx)
+connects it to real authenticated API submission and approval controls.
+
+Start that integration with the [example app guide](https://github.com/plutoframework/pluto-example/blob/main/docs/REFERENCE.md).
+It requires the API, PostgreSQL, a verified account and explicit business grants.
+For another application, implement its own transport, cache updates and scope;
+these are application callbacks, not extra functions exported by this library.
+
+### Testing: project removal and simulate rejection
+
 
 Save this complete synthetic example as `action.mjs`, then run `node action.mjs`.
 It makes no network call. The canonical rows remain untouched while the pending
@@ -77,7 +97,7 @@ from a checkout with `npm ci && npm run example:actions`. Its deferred-promise
 [test](tests/optimistic-example.test.ts) verifies that rejection never restores a
 whole-list snapshot over another completed write or a newly arrived row.
 
-### 3. Connect the UI
+### Choose a controller
 
 Use `useActions` from `/react` or `useActionMutation` from `/query`. Every action
 acknowledges immediately; pending confirmation is the default. Keep authority on

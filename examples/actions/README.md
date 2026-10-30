@@ -1,4 +1,4 @@
-# An optimistic list action with honest failure handling
+# Testing optimistic actions with controlled promises
 
 From this repository with Node 24.22.1:
 
