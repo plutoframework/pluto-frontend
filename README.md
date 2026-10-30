@@ -165,5 +165,34 @@ Tests cover transition rejection, duplicate actions, stale callbacks, reset,
 disposal, executor failures, React Strict Mode/SSR and 1,500 deterministic property
 runs over arbitrary event sequences. Mutation smoke is a bounded set of seeded
 mutations, not a comprehensive mutation engine. CI tests React 18.3.1 and 19.3.1.
-The package is published manually after inspecting its tarball; no npm credentials
-are stored in this repository or in GitHub Actions.
+Releases publish through GitHub Actions using npm trusted publishing (OIDC);
+no npm credentials are stored in this repository or in GitHub Actions.
+
+## Publish a release
+
+The `publish.yml` workflow publishes stable `vMAJOR.MINOR.PATCH` tags using npm
+trusted publishing and provenance. It checks tag/version agreement and main-branch
+ancestry, runs tests and mutation checks, and verifies packed consumers before
+publishing. Prereleases are rejected. Manual dispatch accepts an existing tag for
+retrying a failed publish; npm never overwrites an already published version.
+
+After merging the intended changes into main:
+
+```sh
+npm version patch
+git push origin main --follow-tags
+```
+
+The one-time npm trusted publisher is scoped to:
+
+| Setting        | Value            |
+| -------------- | ---------------- |
+| Organization   | `plutoframework` |
+| Repository     | `pluto-frontend` |
+| Workflow       | `publish.yml`    |
+| Environment    | None             |
+| Allowed action | `npm publish`    |
+
+The workflow uses GitHub-hosted runners with `id-token: write`; npm exchanges the
+workflow identity for a short-lived publish credential. No `NPM_TOKEN` secret is
+needed. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).

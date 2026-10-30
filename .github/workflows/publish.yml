@@ -1,0 +1,42 @@
+name: Publish npm package
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish (for example v0.1.1)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24.22.1"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release.mjs
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:mutation
+      - run: python3 scripts/consumer.py
+      - name: Publish public package with provenance
+        run: npm publish --access public --provenance
