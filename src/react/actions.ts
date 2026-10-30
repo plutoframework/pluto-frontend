@@ -3,6 +3,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -69,18 +70,25 @@ export function useActions<Input, Output>(
     store?.getInitialSnapshot ?? getEmpty,
   );
 
+  const commands = useMemo(
+    () => ({
+      get: (key: string) =>
+        store?.getSnapshot().find((entry) => entry.key === key),
+      run: (key: string, input: Input) =>
+        store?.run(key, input) ?? Promise.resolve(false),
+      resolve: (key: string, status: "succeeded" | "rejected") =>
+        store?.resolve(key, status) ?? Promise.resolve(false),
+      forget: (key: string) => store?.forget(key) ?? Promise.resolve(false),
+      project<View>(value: View, feedback: Feedback<Input, View>) {
+        return store?.project(value, feedback) ?? value;
+      },
+    }),
+    [store],
+  );
+
   return {
     ready: store !== null,
     entries,
-    get: (key: string) =>
-      store?.getSnapshot().find((entry) => entry.key === key),
-    run: (key: string, input: Input) =>
-      store?.run(key, input) ?? Promise.resolve(false),
-    resolve: (key: string, status: "succeeded" | "rejected") =>
-      store?.resolve(key, status) ?? Promise.resolve(false),
-    forget: (key: string) => store?.forget(key) ?? Promise.resolve(false),
-    project<View>(value: View, feedback: Feedback<Input, View>) {
-      return store?.project(value, feedback) ?? value;
-    },
+    ...commands,
   };
 }

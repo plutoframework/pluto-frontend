@@ -75,3 +75,33 @@ it("shows immediate scoped feedback and prevents old-scope cache writes under St
   expect(screen.getByRole("status").textContent).toBe("succeeded");
   client.clear();
 });
+
+it("keeps command identities stable across same-scope renders", async () => {
+  const { renderHook } = await import("@testing-library/react");
+  const client = new QueryClient();
+  const wrapper = ({ children }: { children: import("react").ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+
+  const { result, rerender, unmount } = renderHook(
+    () =>
+      useActionMutation({
+        scope: "one",
+        execute: async (input: string) => input,
+      }),
+    { wrapper },
+  );
+
+  const run = result.current.run;
+  const get = result.current.get;
+  rerender();
+  expect(result.current.run).toBe(run);
+  expect(result.current.get).toBe(get);
+  await act(async () => {
+    await run("record", "saved");
+  });
+  expect(result.current.run).toBe(run);
+  expect(get("record")?.output).toBe("saved");
+  unmount();
+  client.clear();
+});
