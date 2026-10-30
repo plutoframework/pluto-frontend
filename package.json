@@ -54,7 +54,8 @@
     "check": "node scripts/format.mjs --check && eslint . && tsc --noEmit && npm test && npm run build",
     "test": "vitest run && node --test scripts/format.test.mjs",
     "test:mutation": "python3 scripts/mutation.py",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "example:actions": "node scripts/example-actions.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

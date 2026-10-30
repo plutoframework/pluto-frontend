@@ -27,24 +27,55 @@ npm install @plutoframework/frontend@0.2.1
 React is optional; `/query` also needs the TanStack Query v5 peer. Pure `/state`
 and `/actions` consumers acquire neither dependency.
 
-### 2. Try an action
+### 2. Try optimistic removal and rejection
 
-Save this as `action.mjs`, then run `node action.mjs`:
+Save this complete synthetic example as `action.mjs`, then run `node action.mjs`.
+It makes no network call. The canonical rows remain untouched while the pending
+projection hides `one`; definite rejection restores its visibility.
 
 ```js
 import { createActions } from "@plutoframework/frontend/actions";
 
-const actions = createActions({
-  execute: async (id) => ({ id, saved: true }),
-});
+class Rejected extends Error {}
 
-await actions.run("purchase-42", "purchase-42");
-console.log(actions.getSnapshot()[0].status);
-actions.dispose();
+let refuse;
+const response = new Promise((_resolve, reject) => {
+  refuse = reject;
+});
+const rows = ["one", "two"];
+const action = createActions({
+  execute: () => response,
+  classifyError: (error) =>
+    error instanceof Rejected ? "rejected" : "uncertain",
+});
+const visible = () =>
+  action.project(rows, {
+    mode: "optimistic",
+    project: (current, id) => current.filter((row) => row !== id),
+  });
+
+const pending = action.run("one", "one");
+console.log("pending:", visible().join(", "));
+
+// A simulated definite refusal. A timeout must remain uncertain instead.
+refuse(new Rejected("Denied by the server"));
+await pending;
+console.log("rejected:", visible().join(", "));
+action.dispose();
 ```
 
-This local demonstration prints `succeeded`; replace the executor with a feature
-adapter when connecting an API. Choose explicit entrypoints; there is no root import.
+Expected output:
+
+```text
+pending: two
+rejected: one, two
+```
+
+For confirmed changes arriving during another pending action, uncertain outcomes
+and explicit reconciliation, run the [complete scenario](examples/actions/README.md)
+from a checkout with `npm ci && npm run example:actions`. Its deferred-promise
+[test](tests/optimistic-example.test.ts) verifies that rejection never restores a
+whole-list snapshot over another completed write or a newly arrived row.
 
 ### 3. Connect the UI
 
