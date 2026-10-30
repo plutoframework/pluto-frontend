@@ -22,11 +22,17 @@ with tempfile.TemporaryDirectory(prefix='pluto-frontend-consumer-') as temporary
         (app/'package.json').write_text('{"name":"consumer","private":true,"type":"module"}')
         args = ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', str(package)]
         if react:
-            args += [f'react@{react}', f'react-dom@{react}']
+            args += [f'react@{react}', f'react-dom@{react}', '@tanstack/react-query@5.105.0']
         subprocess.run(args, cwd=app, check=True)
         if react is None:
             assert not (app/'node_modules/react').exists(), 'Pure consumer acquired React'
+            assert not (app/'node_modules/@tanstack/react-query').exists(), 'Pure consumer acquired query'
         source = '''import { createMachine } from '@plutoframework/frontend/state';
+import {createActions} from '@plutoframework/frontend/actions';
+const actions = createActions({execute:async value=>value});
+await actions.run('one','saved');
+if(actions.getSnapshot()[0].status!=='succeeded') throw Error('action failed');
+actions.dispose();
 const flow = createMachine({initial:'idle', transition:()=>({accepted:true,state:'done'})});
 if(flow.getSnapshot() !== 'idle') throw Error('wrong initial');
 await flow.send('start');
@@ -39,6 +45,10 @@ import {useMachine} from '@plutoframework/frontend/react';
 const ssr = createMachine({initial:'initial',transition:current=>({accepted:false,state:current})});
 function View(){return createElement('span',null,useMachine(ssr).state);}
 if(!renderToString(createElement(View)).includes('initial')) throw Error('SSR failed');
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {useActionMutation} from '@plutoframework/frontend/query';
+function Action(){const action=useActionMutation({scope:'request-local',execute:async()=>true});return createElement('span',null,action.ready?'ready':'idle');}
+if(!renderToString(createElement(QueryClientProvider,{client:new QueryClient()},createElement(Action))).includes('idle')) throw Error('query SSR failed');
 '''
         (app/'consumer.mjs').write_text(source)
         subprocess.run(['node', 'consumer.mjs'], cwd=app, check=True)

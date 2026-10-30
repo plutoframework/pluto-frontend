@@ -213,3 +213,71 @@ code below. JavaScript and TypeScript lint/format checks enforce this convention
 including the start of a function or branch. Inline trailing comments are kept
 in place, and next-line compiler/linter directives retain their target. The
 cross-language convention is also recorded in AGENTS.md for future changes.
+
+## Responsive actions
+
+Use `@plutoframework/frontend/actions` for a dependency-free action controller,
+`useActions` from `/react` for lifecycle-owned React feedback, or
+`useActionMutation` from `/query` to receive your existing TanStack Query client.
+The query entrypoint requires the optional React and TanStack Query v5 peers;
+state/actions consumers install neither. These helpers do not add a transport,
+automatic retries or backend authorization.
+
+```tsx
+import { useActionMutation } from "@plutoframework/frontend/query";
+
+const action = useActionMutation({
+  scope: JSON.stringify([actor, session, tenant]),
+  execute: (id: string, { signal }) => removeRecord(id, signal),
+  confirm: (_result, id, client) => applyConfirmedRemoval(client, id),
+  reconcile: (_id, client) =>
+    client.invalidateQueries({ queryKey: recordsKey }),
+  classifyError: (error) =>
+    isDefiniteRejection(error) ? "rejected" : "uncertain",
+});
+
+const rows = action.project(query.data ?? [], {
+  mode: "optimistic",
+  project: (current, id) => current.filter((row) => row.id !== id),
+});
+
+// Default: render canonical rows and show entry.status === "pending" per row.
+// Opt in to the projection only when immediate removal is appropriate.
+void action.run(record.id, record.id);
+```
+
+The snippet's transport, cache updater, query key and rejection classifier belong
+to the feature; include actor/session/tenant in query keys. `scope` must change
+when captured resource authority changes. Each resource key is locked while
+pending or uncertain; separate keys can run concurrently. Controls must use
+`ready` and entry status, acknowledge immediately with accessible pending text,
+preserve input on failure and never announce success before confirmation.
+
+`run` resolves to whether the action was accepted, **not whether it succeeded**.
+Read the entry's outcome. `confirm` applies authoritative response data
+synchronously before success; reconciliation runs in the background. A refresh
+failure is `refreshError`, never a failed business write. Handle it visibly with
+a refresh option; no detached promise rejection is left unhandled.
+
+Optimistic projections run over current data without changing the cache. Rejection
+removes only that action's projection, preserving concurrent changes. Keep
+projectors pure; filtered, sorted or paginated collections may need feature-specific
+reconciliation. Success removes the projection, so update canonical data in
+`confirm` before it disappears. Cross-key operations on the same logical entity
+still need a host conflict policy.
+
+Unknown errors default to **uncertain**: timeouts, disconnects and server errors
+may happen after commit. Their projection remains and retries stay locked until
+an authoritative read or same-key replay establishes the outcome; call
+`resolve(key, "succeeded" | "rejected")` only then. A declared rejection permits
+retry. `forget` releases only terminal entries; retention is bounded to 1,000
+keys by default. Action keys deduplicate this controller only: keep stable backend
+idempotency keys separately for the same business intent.
+
+Constructors perform no effects. React owns a fresh store for each committed
+scope and disposes it on scope change/unmount, including StrictMode replay.
+`ready` is false during initialization/SSR. Disposal aborts cooperative requests
+and fences confirmations; it cannot undo a server write or already-started cache
+refresh. Use scoped queries and cancel/remove old reads in the host when changing
+identity. Headless hosts own disposal themselves. No persistence, cross-component
+locking, offline queue or exactly-once guarantee is implied.

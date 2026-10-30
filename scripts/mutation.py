@@ -17,6 +17,16 @@ mutations = [
     ('response correlation', 'examples/purchases/approval.ts',
      'event.type === "resolved" && event.requestId === current.requestId',
      'event.type === "resolved"'),
+    ('action duplicate lock', 'src/actions/index.ts',
+     'if (locked || (!previous && current.length >= capacity))',
+     'if (!previous && current.length >= capacity)'),
+    ('action uncertainty classification', 'src/actions/index.ts',
+     'options.classifyError?.(error) ?? "uncertain"',
+     'options.classifyError?.(error) ?? "rejected"'),
+    ('action scoped completion', 'src/actions/index.ts',
+     'if (signal.aborted) {\n          return;\n        }\n\n        let refreshError',
+     'if (false) {\n          return;\n        }\n\n        let refreshError'),
+
 ]
 for name, filename, before, after in mutations:
     with tempfile.TemporaryDirectory(prefix='pluto-frontend-mutant-') as temporary:

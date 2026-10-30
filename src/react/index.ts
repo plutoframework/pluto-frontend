@@ -16,3 +16,7 @@ export function useMachine<State, Event>(machine: Machine<State, Event>) {
     send: machine.send,
   };
 }
+
+export { useActions } from "./actions.js";
+
+export type { ScopedActionOptions } from "./actions.js";
