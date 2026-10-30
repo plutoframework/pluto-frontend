@@ -17,6 +17,7 @@ afterEach(cleanup);
 
 function View({ machine }: { machine: Machine<string, string> }) {
   const { state, send } = useMachine(machine);
+
   return (
     <button
       onClick={() => {
@@ -33,20 +34,30 @@ it("StrictMode subscriptions never trigger effects or duplicate user actions", a
   const gate = new Promise<void>((resolve) => {
     finish = resolve;
   });
+
   const execute = vi.fn(() => gate);
   const machine = createMachine<string, string, string>({
     initial: "idle",
     transition: (state) =>
       state === "idle"
-        ? { accepted: true, state: "pending", effect: "work" }
-        : { accepted: false, state },
+        ? {
+          accepted: true,
+          state: "pending",
+          effect: "work",
+        }
+        : {
+          accepted: false,
+          state,
+        },
     execute,
   });
+
   const first = render(
     <StrictMode>
       <View machine={machine} />
     </StrictMode>,
   );
+
   expect(execute).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button"));
   fireEvent.click(screen.getByRole("button"));
@@ -74,8 +85,12 @@ it("server renders fresh request-local initial data without effects", () => {
   const machine = createMachine({
     initial: "idle",
     execute,
-    transition: (state: string) => ({ accepted: false, state }),
+    transition: (state: string) => ({
+      accepted: false,
+      state,
+    }),
   });
+
   expect(renderToString(<View machine={machine} />)).toContain("idle");
   expect(execute).not.toHaveBeenCalled();
 });

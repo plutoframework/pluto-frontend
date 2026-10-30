@@ -196,3 +196,13 @@ The one-time npm trusted publisher is scoped to:
 The workflow uses GitHub-hosted runners with `id-token: write`; npm exchanges the
 workflow identity for a short-lived publish credential. No `NPM_TOKEN` secret is
 needed. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+
+## Source readability
+
+Development tooling uses ESLint Stylistic with an 80-column expanded convention.
+Run `npm run fmt` to apply the canonical Prettier + ESLint result. `npm run check`
+checks formatting without writing, then lint, types, behavior tests and builds.
+Braces, multiline blocks, separated object/type fields and logical blank lines
+are enforced; nested ternaries require explicit branches or named mappings.
+The policy is visible in `scripts/readability.mjs`. These are dev-only tools and
+add no runtime dependencies to state or React entrypoints.

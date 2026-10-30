@@ -10,5 +10,9 @@ export function useMachine<State, Event>(machine: Machine<State, Event>) {
     machine.getSnapshot,
     machine.getInitialSnapshot,
   );
-  return { state, send: machine.send };
+
+  return {
+    state,
+    send: machine.send,
+  };
 }

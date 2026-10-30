@@ -15,5 +15,6 @@ export function typeBoundaries(machine: Machine<State, Event>) {
     // @ts-expect-error rejected decisions cannot schedule work
     effect: "work",
   };
+
   return rejected;
 }

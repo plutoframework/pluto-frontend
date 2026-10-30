@@ -1,7 +1,14 @@
 /** Domain facts belong in immutable state/events supplied by the host. */
 export type Decision<State, Effect = never> =
-  | { readonly accepted: true; readonly state: State; readonly effect?: Effect }
-  | { readonly accepted: false; readonly state: State };
+  | {
+      readonly accepted: true;
+      readonly state: State;
+      readonly effect?: Effect;
+    }
+  | {
+      readonly accepted: false;
+      readonly state: State;
+    };
 
 export type Transition<State, Event, Effect = never> = (
   current: State,

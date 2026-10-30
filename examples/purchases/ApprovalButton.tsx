@@ -29,7 +29,10 @@ export function ApprovalButton({
           <p>Approve this purchase?</p>
           <button
             onClick={() =>
-              dispatch({ type: "confirm", requestId: crypto.randomUUID() })
+              dispatch({
+                type: "confirm",
+                requestId: crypto.randomUUID(),
+              })
             }
           >
             Confirm

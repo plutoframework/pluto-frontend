@@ -13,28 +13,45 @@ export function createMachine<State, Event, Effect = never>(
   const executions = new Set<AbortController>();
 
   function notify(): void {
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      listener();
+    }
   }
 
   function cancel(): void {
     // Fence callbacks BEFORE synchronous abort handlers can send events.
     epoch++;
-    for (const controller of executions) controller.abort();
+
+    for (const controller of executions) {
+      controller.abort();
+    }
+
     executions.clear();
   }
 
   async function send(event: Event): Promise<boolean> {
-    if (disposed) return false;
-    if (evaluating) throw new Error("Transitions must not send events");
+    if (disposed) {
+      return false;
+    }
+
+    if (evaluating) {
+      throw new Error("Transitions must not send events");
+    }
+
     const generation = epoch;
     evaluating = true;
     let decision;
+
     try {
       decision = transition(current, event);
     } finally {
       evaluating = false;
     }
-    if (!decision.accepted) return false;
+
+    if (!decision.accepted) {
+      return false;
+    }
+
     if (decision.effect !== undefined && !execute) {
       throw new Error("An effect requires an executor");
     }
@@ -43,10 +60,15 @@ export function createMachine<State, Event, Effect = never>(
     let active = true;
     executions.add(controller);
     current = decision.state;
+
     try {
       notify();
+
       // Subscribers may reset/dispose the flow during notification.
-      if (generation !== epoch || disposed) return true;
+      if (generation !== epoch || disposed) {
+        return true;
+      }
+
       if (decision.effect !== undefined && execute) {
         await execute(decision.effect, {
           signal: controller.signal,
@@ -54,10 +76,12 @@ export function createMachine<State, Event, Effect = never>(
             if (!active || generation !== epoch || disposed) {
               return Promise.resolve(false);
             }
+
             return send(next);
           },
         });
       }
+
       return true;
     } finally {
       active = false;
@@ -69,21 +93,31 @@ export function createMachine<State, Event, Effect = never>(
     getSnapshot: () => current,
     getInitialSnapshot: () => initial,
     subscribe(listener) {
-      if (disposed) return () => {};
+      if (disposed) {
+        return () => {};
+      }
+
       listeners.add(listener);
+
       return () => {
         listeners.delete(listener);
       };
     },
     send,
     reset() {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
+
       cancel();
       current = initial;
       notify();
     },
     dispose() {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
+
       disposed = true;
       cancel();
       listeners.clear();

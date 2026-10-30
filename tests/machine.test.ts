@@ -8,7 +8,11 @@ function deferred() {
   const promise = new Promise<void>((done) => {
     resolve = done;
   });
-  return { promise, resolve };
+
+  return {
+    promise,
+    resolve,
+  };
 }
 
 function work() {
@@ -21,23 +25,46 @@ function work() {
       await value.send("done");
     },
   );
+
   const machine = createMachine<string, string, string>({
     initial: "idle",
     transition(current, event) {
       if (current === "idle" && event === "start") {
-        return { accepted: true, state: "pending", effect: "work" };
+        return {
+          accepted: true,
+          state: "pending",
+          effect: "work",
+        };
       }
+
       if (current === "pending" && event === "done") {
-        return { accepted: true, state: "done" };
+        return {
+          accepted: true,
+          state: "done",
+        };
       }
+
       if (current === "done" && event === "restart") {
-        return { accepted: true, state: "idle" };
+        return {
+          accepted: true,
+          state: "idle",
+        };
       }
-      return { accepted: false, state: current };
+
+      return {
+        accepted: false,
+        state: current,
+      };
     },
     execute,
   });
-  return { gate, machine, execute, context: () => context };
+
+  return {
+    gate,
+    machine,
+    execute,
+    context: () => context,
+  };
 }
 
 describe("controller", () => {
@@ -100,7 +127,9 @@ describe("controller", () => {
   it("reset during notification prevents obsolete effect execution", async () => {
     const { machine, execute } = work();
     machine.subscribe(() => {
-      if (machine.getSnapshot() === "pending") machine.reset();
+      if (machine.getSnapshot() === "pending") {
+        machine.reset();
+      }
     });
     await machine.send("start");
     expect(machine.getSnapshot()).toBe("idle");
@@ -113,8 +142,12 @@ describe("controller", () => {
     const machine = createMachine({
       initial,
       execute,
-      transition: () => ({ accepted: false, state: { value: 2 } }),
+      transition: () => ({
+        accepted: false,
+        state: { value: 2 },
+      }),
     });
+
     const changed = vi.fn();
     machine.subscribe(changed);
     expect(await machine.send("invalid")).toBe(false);
@@ -127,11 +160,16 @@ describe("controller", () => {
     const failure = new Error("unexpected executor failure");
     const machine = createMachine({
       initial: "idle",
-      transition: () => ({ accepted: true, state: "pending", effect: "work" }),
+      transition: () => ({
+        accepted: true,
+        state: "pending",
+        effect: "work",
+      }),
       execute: () => {
         throw failure;
       },
     });
+
     await expect(machine.send("start")).rejects.toBe(failure);
     expect(machine.getSnapshot()).toBe("pending");
   });
@@ -139,8 +177,13 @@ describe("controller", () => {
   it("rejects missing executors and transition errors before commit", async () => {
     const machine = createMachine<string, string, string>({
       initial: "idle",
-      transition: () => ({ accepted: true, state: "pending", effect: "work" }),
+      transition: () => ({
+        accepted: true,
+        state: "pending",
+        effect: "work",
+      }),
     });
+
     await expect(machine.send("start")).rejects.toThrow("executor");
     expect(machine.getSnapshot()).toBe("idle");
   });
@@ -150,7 +193,11 @@ describe("controller", () => {
     const approve = vi.fn((_id: string, _signal: AbortSignal) => gate.promise);
     const flow = createApproval("purchase-1", { approvePurchase: approve });
     await flow.send({ type: "open" });
-    const pending = flow.send({ type: "confirm", requestId: "request-1" });
+    const pending = flow.send({
+      type: "confirm",
+      requestId: "request-1",
+    });
+
     expect(approve.mock.calls[0]?.[0]).toBe("purchase-1");
     flow.dispose();
     gate.resolve();
@@ -164,10 +211,17 @@ it("transition exceptions leave the controller usable and unchanged", async () =
   const machine = createMachine({
     initial: "idle",
     transition(current: string, event: string) {
-      if (event === "bad") throw failure;
-      return { accepted: true, state: current + "!" };
+      if (event === "bad") {
+        throw failure;
+      }
+
+      return {
+        accepted: true,
+        state: current + "!",
+      };
     },
   });
+
   await expect(machine.send("bad")).rejects.toBe(failure);
   expect(machine.getSnapshot()).toBe("idle");
   expect(await machine.send("good")).toBe(true);

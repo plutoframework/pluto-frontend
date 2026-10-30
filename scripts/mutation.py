@@ -6,12 +6,12 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 mutations = [
-    ('rejected event result', 'src/state/machine.ts', 'if (!decision.accepted) return false;',
-     'if (!decision.accepted) return true;'),
+    ('rejected event result', 'src/state/machine.ts', 'if (!decision.accepted) {\n      return false;\n    }',
+     'if (!decision.accepted) {\n      return true;\n    }'),
     ('reset callback epoch', 'src/state/machine.ts',
      'if (!active || generation !== epoch || disposed)', 'if (!active || disposed)'),
-    ('disposed event guard', 'src/state/machine.ts', 'if (disposed) return false;',
-     'if (false) return false;'),
+    ('disposed event guard', 'src/state/machine.ts', 'if (disposed) {\n      return false;\n    }',
+     'if (false) {\n      return false;\n    }'),
     ('abort signal', 'src/state/machine.ts', 'controller.abort();', 'void controller;'),
     ('completed callback guard', 'src/state/machine.ts', 'active = false;', 'active = true;'),
     ('response correlation', 'examples/purchases/approval.ts',
