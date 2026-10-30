@@ -1,6 +1,6 @@
 {
   "name": "@plutoframework/frontend",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Explicit, typed frontend state transitions and React subscriptions for Pluto applications.",
   "type": "module",
   "license": "MIT",
