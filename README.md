@@ -48,7 +48,6 @@ these are application callbacks, not extra functions exported by this library.
 
 ### Testing: project removal and simulate rejection
 
-
 Save this complete synthetic example as `action.mjs`, then run `node action.mjs`.
 It makes no network call. The canonical rows remain untouched while the pending
 projection hides `one`; definite rejection restores its visibility.
