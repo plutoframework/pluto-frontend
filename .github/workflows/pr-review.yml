@@ -3,7 +3,13 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_run:
-    workflows: ["Check frontend primitives", "Pluto security", "Notify PR review", "CodeQL"]
+    workflows:
+      [
+        "Check frontend primitives",
+        "Pluto security",
+        "Notify PR review",
+        "CodeQL",
+      ]
     types: [completed]
   workflow_dispatch:
     inputs:
