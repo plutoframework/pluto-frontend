@@ -45,3 +45,20 @@ Follow any repository security policy and use GitHub's private vulnerability
 reporting when enabled. Do not post undisclosed exploit details in a public issue;
 if no private route is offered, ask maintainers how to report privately without
 including sensitive details. Publishing a patch is not an independent audit.
+
+## Maintainer commands
+
+Run these from the library repository root; no application `pluto.toml` is needed:
+
+```sh
+make fmt    # apply formatting
+make vet    # check formatting, lint and build without fixes
+make check  # standard checks, including tests
+make test   # tests only
+```
+
+Install locked dependencies with `npm ci` first. These targets use the
+existing npm scripts and their pinned tools.
+
+Keep running the documented fuzz, mutation and service integration checks when
+the change requires them; `make check` does not replace those checks.
